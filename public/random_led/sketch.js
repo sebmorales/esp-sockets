@@ -1,6 +1,7 @@
 // Random LED.
 // Boards announce themselves with "<id>,<ldr>" lines. Press the spacebar:
-// every board blinks a few times, then one random board stays on.
+// every board blinks together, fast at first and slowing down like a roulette
+// wheel, then one random board stays on.
 // LEDs are driven with "led,<id>,1" / "led,<id>,0".
 
 const SERVER =
@@ -8,8 +9,9 @@ const SERVER =
 // const SERVER = "wss://esp-sockets-class-example.onrender.com";
 
 const TIMEOUT_MS = 3000;   // forget a board that stays silent this long
-const BLINKS = 3;          // how many times everything blinks before the pick
-const BLINK_MS = 150;      // on time and off time of each blink
+const BLINKS = 8;          // how many times everything blinks before the pick
+const FIRST_MS = 120;      // on/off time of the first blink
+const SLOWDOWN = 1.25;     // each blink is this much longer than the previous one
 
 let ws;
 let boards = {};           // id -> last time seen
@@ -46,16 +48,19 @@ function pick() {
   if (ids.length === 0) return;
   lit = null;
 
-  // blink everything BLINKS times...
+  // blink everything BLINKS times, each blink slower than the last...
+  let t = 0, d = FIRST_MS;
   for (let i = 0; i < BLINKS; i++) {
-    setTimeout(() => setAll(true), i * 2 * BLINK_MS);
-    setTimeout(() => setAll(false), i * 2 * BLINK_MS + BLINK_MS);
+    setTimeout(() => setAll(true), t);
+    setTimeout(() => setAll(false), t + d);
+    t += 2 * d;
+    d *= SLOWDOWN;
   }
   // ...then leave one random board on
   setTimeout(() => {
     lit = random(Object.keys(boards));
     send("led," + lit + ",1");
-  }, BLINKS * 2 * BLINK_MS);
+  }, t);
 }
 
 function keyPressed() {
